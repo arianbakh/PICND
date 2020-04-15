@@ -131,9 +131,9 @@ class IranStock:
         print()  # newline
 
 
-def get_iran_stock_networks():
+def get_iran_stock_networks(recreate=False):
     cached_path = os.path.join(DATA_DIR, 'iran_stock_networks.p')
-    if os.path.exists(cached_path):
+    if not recreate and os.path.exists(cached_path):
         with open(cached_path, 'rb') as cached_file:
             networks = pickle.load(cached_file)
     else:

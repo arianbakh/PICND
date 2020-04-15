@@ -14,6 +14,7 @@ class Network:
         self.node_labels = node_labels
         self.adjacency_matrix = np.zeros((self.x.shape[1], self.x.shape[1]))
         self._calculate_adjacency_matrix()
+        self.dynamicity = np.mean(np.abs(self.x[1:] - self.x[:self.x.shape[0] - 1]))
 
     def _normalize(self):
         normalized_columns = []
