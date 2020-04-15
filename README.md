@@ -1,2 +1,3 @@
-# D3CND
-Data-Driven Discovery of Complex Network Dynamics
+# Installation
+
+- `sudo pip3 install -r requirements.txt`
