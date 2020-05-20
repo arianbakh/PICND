@@ -10,6 +10,7 @@ import warnings
 
 from matplotlib.backends import backend_gtk3
 
+from dynamic_models.epidemic_dynamics_model import EpidemicDynamicsModel
 from dynamic_models.synthetic_dynamics_model_1 import SyntheticDynamicsModel1
 from networks.fully_connected_random_weights import FullyConnectedRandomWeights
 from settings import OUTPUT_DIR
@@ -21,8 +22,8 @@ sns.set()
 
 NUMBER_OF_NODES = 10
 DELTA_T = 0.01
-TIME_FRAMES = 20
-CHROMOSOME_SIZE = 3
+TIME_FRAMES = 100
+CHROMOSOME_SIZE = 4
 GENE_SIZE = 12  # bits
 MUTATION_CHANCE = 0.1
 POPULATION = 100
@@ -42,15 +43,25 @@ def _get_theta(x, adjacency_matrix, powers):
             np.ones(TIME_FRAMES),
             x_i ** powers[0],
         ]
-        terms = []
+
+        ij_terms = []
+        j_terms = []
         for j in range(NUMBER_OF_NODES):
             if j != node_index and adjacency_matrix[j, node_index]:
                 x_j = x[:TIME_FRAMES, j]
-                terms.append(
-                    adjacency_matrix[j, node_index] * x_i ** powers[1] * x_j ** powers[2])
-        if terms:
-            column = np.sum(terms, axis=0)
-            column_list.append(column)
+                ij_terms.append(adjacency_matrix[j, node_index] * x_i ** powers[1] * x_j ** powers[2])
+                j_terms.append(adjacency_matrix[j, node_index] * x_j ** powers[3])
+        if ij_terms:
+            ij_column = np.sum(ij_terms, axis=0)
+            column_list.append(ij_column)
+        else:
+            column_list.append(np.zeros(TIME_FRAMES))
+        if j_terms:
+            j_column = np.sum(j_terms, axis=0)
+            column_list.append(j_column)
+        else:
+            column_list.append(np.zeros(TIME_FRAMES))
+
         theta = np.column_stack(column_list)
         theta_list.append(theta)
     return np.concatenate(theta_list)
@@ -178,7 +189,8 @@ def _draw_error_plot(errors, network_name, dynamic_model_name):
 def run():
     network = FullyConnectedRandomWeights(NUMBER_OF_NODES)
 
-    dynamics_model = SyntheticDynamicsModel1(network, DELTA_T)
+    # dynamics_model = SyntheticDynamicsModel1(network, DELTA_T)  # TODO
+    dynamics_model = EpidemicDynamicsModel(network, DELTA_T)
     x = dynamics_model.get_x(TIME_FRAMES)
     y = dynamics_model.get_x_dot(x)
 
@@ -200,13 +212,15 @@ def run():
             print(fittest_individual['mse'])
     end_time = time.time()
     print('took', int(end_time - start_time), 'seconds')
-    print('%f + %f * xi^%f + %f * sum Aij * xi^%f * xj^%f' % (
+    print('%f + %f * xi^%f + %f * sum Aij * xi^%f * xj^%f + %f * sum Aij * xj^%f' % (
         fittest_individual['coefficients'][0],
         fittest_individual['coefficients'][1],
         fittest_individual['powers'][0],
         fittest_individual['coefficients'][2],
         fittest_individual['powers'][1],
-        fittest_individual['powers'][2]
+        fittest_individual['powers'][2],
+        fittest_individual['coefficients'][3],
+        fittest_individual['powers'][3]
     ))
     _draw_error_plot(errors, network.name, dynamics_model.name)
 
