@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import time
 
 from dynamic_models.synthetic_dynamics_model_1 import SyntheticDynamicsModel1
 from networks.fully_connected_random_weights import FullyConnectedRandomWeights
@@ -7,13 +8,13 @@ from networks.fully_connected_random_weights import FullyConnectedRandomWeights
 
 NUMBER_OF_NODES = 10
 DELTA_T = 0.01
-TIME_FRAMES = 10
+TIME_FRAMES = 20
 CHROMOSOME_SIZE = 3
-GENE_SIZE = 8  # bits
+GENE_SIZE = 12  # bits
 MUTATION_CHANCE = 0.1
 POPULATION = 100
 CHILDREN = 10
-ITERATIONS = 3000
+TERMINATION_CONDITION = 1000  # number of iterations allowed without improvement
 POWER_RANGE = (0, 2)
 
 
@@ -21,10 +22,10 @@ STEP = (POWER_RANGE[1] - POWER_RANGE[0]) / 2 ** GENE_SIZE
 
 
 class Individual:
-    def __init__(self, chromosome, x, y, adjacency_matrix):
+    def __init__(self, chromosome, x, y, network):
         self.coefficients = None
         self.chromosome = chromosome
-        self.fitness = self._calculate_fitness(x, y, adjacency_matrix)
+        self.fitness = self._calculate_fitness(x, y, network.adjacency_matrix)
 
     def _get_theta(self, x, adjacency_matrix):
         theta_list = []
@@ -140,18 +141,27 @@ class Population:
 
 def run():
     network = FullyConnectedRandomWeights(NUMBER_OF_NODES)
-    adjacency_matrix = network.adjacency_matrix
 
     dynamics_model = SyntheticDynamicsModel1(network, DELTA_T)
     x = dynamics_model.get_x(TIME_FRAMES)
     y = dynamics_model.get_x_dot(x)
 
-    population = Population(POPULATION, x, y, adjacency_matrix)  # TODO don't pass adjacency matrix
+    population = Population(POPULATION, x, y, network)
     fittest_individual = None
-    for i in range(ITERATIONS):
+    counter = 0
+    best_fitness = 0
+    best_index = 0
+    start_time = time.time()
+    while counter - best_index < TERMINATION_CONDITION:
+        counter += 1
         fittest_individual = population.run_single_iteration()
-        if i % 1000 == 0:
+        if fittest_individual.fitness > best_fitness:
+            best_fitness = fittest_individual.fitness
+            best_index = counter
+        if counter % 100 == 0:
             print(1 / fittest_individual.fitness)
+    end_time = time.time()
+    print('took', int(end_time - start_time), 'seconds')
     print('%f + %f * xi^%f + %f * sum Aij * xi^%f * xj^%f' % (
         fittest_individual.coefficients[0],
         fittest_individual.coefficients[1],
