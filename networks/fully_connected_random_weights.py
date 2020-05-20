@@ -5,6 +5,10 @@ from networks.abstract_network import Network
 
 
 class FullyConnectedRandomWeights(Network):
+    def __init__(self, number_of_nodes):
+        super().__init__(number_of_nodes)
+        self.name = 'FCRW'
+
     def _create_adjacency_matrix(self):
         a = np.zeros((self.number_of_nodes, self.number_of_nodes))
         for i in range(self.number_of_nodes):

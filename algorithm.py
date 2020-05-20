@@ -1,9 +1,22 @@
+import math
+import matplotlib.pyplot as plt
 import numpy as np
+import os
+import pandas as pd
 import random
+import seaborn as sns
 import time
+import warnings
+
+from matplotlib.backends import backend_gtk3
 
 from dynamic_models.synthetic_dynamics_model_1 import SyntheticDynamicsModel1
 from networks.fully_connected_random_weights import FullyConnectedRandomWeights
+from settings import OUTPUT_DIR
+
+
+warnings.filterwarnings('ignore', module=backend_gtk3.__name__)
+sns.set()
 
 
 NUMBER_OF_NODES = 10
@@ -25,7 +38,8 @@ class Individual:
     def __init__(self, chromosome, x, y, network):
         self.coefficients = None
         self.chromosome = chromosome
-        self.fitness = self._calculate_fitness(x, y, network.adjacency_matrix)
+        self.mse = self._calculate_mse(x, y, network.adjacency_matrix)
+        self.fitness = 1 / self.mse
 
     def _get_theta(self, x, adjacency_matrix):
         theta_list = []
@@ -63,15 +77,6 @@ class Individual:
         self.coefficients = coefficients
         y_hat = np.matmul(theta, coefficients.T)
         return np.mean((stacked_y - y_hat) ** 2)
-
-    def _calculate_least_difference(self):
-        sorted_powers = np.sort(self.powers)
-        return np.min(sorted_powers[1:] - sorted_powers[:-1])
-
-    def _calculate_fitness(self, x, y, adjacency_matrix):
-        mse = self._calculate_mse(x, y, adjacency_matrix)
-        least_difference = self._calculate_least_difference()
-        return least_difference / mse
 
 
 class Population:
@@ -139,6 +144,22 @@ class Population:
         return self.individuals[0]  # fittest
 
 
+def _draw_error_plot(errors, network_name, dynamic_model_name):
+    data_frame = pd.DataFrame({
+        'iterations': np.arange(len(errors)),
+        'errors': np.array(errors),
+    })
+    plt.subplots(figsize=(20, 10))
+    ax = sns.lineplot(x='iterations', y='errors', data=data_frame)
+    ax.set(
+        xlabel='Iteration',
+        ylabel='log(MSE) of Fittest Individual',
+        title='%s model on %s network' % (dynamic_model_name, network_name)
+    )
+    plt.savefig(os.path.join(OUTPUT_DIR, '%s_on_%s.png' % (dynamic_model_name, network_name)))
+    plt.close('all')
+
+
 def run():
     network = FullyConnectedRandomWeights(NUMBER_OF_NODES)
 
@@ -151,15 +172,17 @@ def run():
     counter = 0
     best_fitness = 0
     best_index = 0
+    errors = []
     start_time = time.time()
     while counter - best_index < TERMINATION_CONDITION:
         counter += 1
         fittest_individual = population.run_single_iteration()
+        errors.append(math.log(fittest_individual.mse))
         if fittest_individual.fitness > best_fitness:
             best_fitness = fittest_individual.fitness
             best_index = counter
         if counter % 100 == 0:
-            print(1 / fittest_individual.fitness)
+            print(fittest_individual.mse)
     end_time = time.time()
     print('took', int(end_time - start_time), 'seconds')
     print('%f + %f * xi^%f + %f * sum Aij * xi^%f * xj^%f' % (
@@ -170,6 +193,7 @@ def run():
         fittest_individual.powers[1],
         fittest_individual.powers[2]
     ))
+    _draw_error_plot(errors, network.name, dynamics_model.name)
 
 
 if __name__ == '__main__':

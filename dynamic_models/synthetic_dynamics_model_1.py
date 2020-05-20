@@ -4,12 +4,15 @@ from dynamic_models.abstract_dynamics_model import DynamicsModel
 
 
 class SyntheticDynamicsModel1(DynamicsModel):
-    offset_time_frames = 100
+    def __init__(self, network, delta_t):
+        super().__init__(network, delta_t)
+        self.name = 'SDM1'
+        self.offset_time_frames = 100
 
     def get_x(self, time_frames):
         number_of_nodes = self.network.number_of_nodes
         adjacency_matrix = self.network.adjacency_matrix
-        total_time_frames = SyntheticDynamicsModel1.offset_time_frames + time_frames + 1
+        total_time_frames = self.offset_time_frames + time_frames + 1
 
         x = np.zeros((total_time_frames, number_of_nodes))
         x[0] = np.ones(number_of_nodes)

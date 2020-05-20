@@ -1,6 +1,8 @@
 .idea/*
 data/*
 !data/PLACEHOLDER
+output/*
+!output/PLACEHOLDER
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
