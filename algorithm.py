@@ -1,22 +1,22 @@
 import numpy as np
 import random
 
-from scipy.stats import iqr
+from dynamic_models.synthetic_dynamics_model_1 import SyntheticDynamicsModel1
+from networks.fully_connected_random_weights import FullyConnectedRandomWeights
 
-from iran_stock import get_iran_stock_networks
 
-
-# Genetic Settings
-CHROMOSOME_SIZE = 4
-GENE_SIZE = 12  # bits
+NUMBER_OF_NODES = 10
+DELTA_T = 0.01
+TIME_FRAMES = 10
+CHROMOSOME_SIZE = 3
+GENE_SIZE = 8  # bits
 MUTATION_CHANCE = 0.1
 POPULATION = 100
 CHILDREN = 10
-ITERATIONS = 1000
-POWER_RANGE = (-6, 10)
+ITERATIONS = 3000
+POWER_RANGE = (0, 2)
 
 
-# Calculated Settings
 STEP = (POWER_RANGE[1] - POWER_RANGE[0]) / 2 ** GENE_SIZE
 
 
@@ -27,24 +27,19 @@ class Individual:
         self.fitness = self._calculate_fitness(x, y, adjacency_matrix)
 
     def _get_theta(self, x, adjacency_matrix):
-        number_of_nodes = x.shape[1]
-        time_frames = x.shape[0] - 1
-
         theta_list = []
-        for node_index in range(number_of_nodes):
-            x_i = x[:time_frames, node_index]
-            adjacency_sum = np.sum(adjacency_matrix[:, node_index])
+        for node_index in range(NUMBER_OF_NODES):
+            x_i = x[:TIME_FRAMES, node_index]
             column_list = [
-                np.ones(time_frames),
+                np.ones(TIME_FRAMES),
                 x_i ** self.powers[0],
-                adjacency_sum * x_i ** self.powers[1],
             ]
             terms = []
-            for j in range(number_of_nodes):
+            for j in range(NUMBER_OF_NODES):
                 if j != node_index and adjacency_matrix[j, node_index]:
-                    x_j = x[:time_frames, j]
+                    x_j = x[:TIME_FRAMES, j]
                     terms.append(
-                        adjacency_matrix[j, node_index] * x_i ** self.powers[2] * x_j ** self.powers[3])
+                        adjacency_matrix[j, node_index] * x_i ** self.powers[1] * x_j ** self.powers[2])
             if terms:
                 column = np.sum(terms, axis=0)
                 column_list.append(column)
@@ -53,8 +48,6 @@ class Individual:
         return np.concatenate(theta_list)
 
     def _calculate_mse(self, x, y, adjacency_matrix):
-        number_of_nodes = x.shape[1]
-
         powers = []
         for i in range(CHROMOSOME_SIZE):
             binary = 0
@@ -64,15 +57,20 @@ class Individual:
             powers.append(power)
         self.powers = powers
         theta = self._get_theta(x, adjacency_matrix)
-        stacked_y = np.concatenate([y[:, node_index] for node_index in range(number_of_nodes)])
+        stacked_y = np.concatenate([y[:, node_index] for node_index in range(NUMBER_OF_NODES)])
         coefficients = np.linalg.lstsq(theta, stacked_y, rcond=None)[0]
         self.coefficients = coefficients
         y_hat = np.matmul(theta, coefficients.T)
         return np.mean((stacked_y - y_hat) ** 2)
 
+    def _calculate_least_difference(self):
+        sorted_powers = np.sort(self.powers)
+        return np.min(sorted_powers[1:] - sorted_powers[:-1])
+
     def _calculate_fitness(self, x, y, adjacency_matrix):
         mse = self._calculate_mse(x, y, adjacency_matrix)
-        return 1 / mse
+        least_difference = self._calculate_least_difference()
+        return least_difference / mse
 
 
 class Population:
@@ -140,35 +138,27 @@ class Population:
         return self.individuals[0]  # fittest
 
 
-def _get_y(x):
-    x_dot = (x[1:] - x[:len(x) - 1])
-    return x_dot
-
-
 def run():
-    iran_stock_networks = get_iran_stock_networks()
-    sorted_iran_stock_networks = sorted(iran_stock_networks, key=lambda network: -network.dynamicity)
-    x = sorted_iran_stock_networks[0].x
-    x = x - np.min(x) + 1  # all entries are at least 1
-    adjacency_matrix = sorted_iran_stock_networks[0].adjacency_matrix
-    y = _get_y(x)
-    interquartile_range = iqr(y)
-    population = Population(POPULATION, x, y, adjacency_matrix)
+    network = FullyConnectedRandomWeights(NUMBER_OF_NODES)
+    adjacency_matrix = network.adjacency_matrix
+
+    dynamics_model = SyntheticDynamicsModel1(network, DELTA_T)
+    x = dynamics_model.get_x(TIME_FRAMES)
+    y = dynamics_model.get_x_dot(x)
+
+    population = Population(POPULATION, x, y, adjacency_matrix)  # TODO don't pass adjacency matrix
     fittest_individual = None
     for i in range(ITERATIONS):
         fittest_individual = population.run_single_iteration()
-        mse = 1 / fittest_individual.fitness
-        rmsdiqr = mse ** 0.5 / interquartile_range
-        print(rmsdiqr)
-    print('%f + %f * xi^%f + %f * sum Aij xi^%f + %f * sum Aij * xi^%f * xj^%f' % (
+        if i % 1000 == 0:
+            print(1 / fittest_individual.fitness)
+    print('%f + %f * xi^%f + %f * sum Aij * xi^%f * xj^%f' % (
         fittest_individual.coefficients[0],
         fittest_individual.coefficients[1],
         fittest_individual.powers[0],
         fittest_individual.coefficients[2],
         fittest_individual.powers[1],
-        fittest_individual.coefficients[3],
-        fittest_individual.powers[2],
-        fittest_individual.powers[3]
+        fittest_individual.powers[2]
     ))
 
 
