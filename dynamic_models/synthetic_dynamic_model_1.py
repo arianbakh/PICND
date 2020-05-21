@@ -4,9 +4,10 @@ from dynamic_models.abstract_dynamic_model import DynamicModel
 
 
 class SyntheticDynamicModel1(DynamicModel):
+    name = 'SDM1'
+
     def __init__(self, network):
         super().__init__(network, delta_t=0.01)
-        self.name = 'SDM1'
         self.offset_time_frames = 100
 
     def get_x(self, time_frames):

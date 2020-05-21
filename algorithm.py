@@ -14,24 +14,12 @@ from matplotlib.backends import backend_gtk3
 from dynamic_models.epidemic_dynamic_model import EpidemicDynamicModel
 from dynamic_models.synthetic_dynamic_model_1 import SyntheticDynamicModel1
 from networks.fully_connected_random_weights import FullyConnectedRandomWeights
-from settings import OUTPUT_DIR
-
+from networks.uci_online import UCIOnline
+from settings import OUTPUT_DIR, TIME_FRAMES, CHROMOSOME_SIZE, GENE_SIZE, MUTATION_CHANCE, POPULATION, CHILDREN, \
+    TERMINATION_CONDITION, POWER_RANGE, STEP
 
 warnings.filterwarnings('ignore', module=backend_gtk3.__name__)
 sns.set()
-
-
-TIME_FRAMES = 100
-CHROMOSOME_SIZE = 4
-GENE_SIZE = 12  # bits
-MUTATION_CHANCE = 0.1
-POPULATION = 100
-CHILDREN = 10
-TERMINATION_CONDITION = 1000  # number of iterations allowed without improvement
-POWER_RANGE = (0, 2)
-
-
-STEP = (POWER_RANGE[1] - POWER_RANGE[0]) / 2 ** GENE_SIZE
 
 
 def _get_theta(x, adjacency_matrix, powers):
@@ -187,16 +175,18 @@ def _draw_error_plot(errors, network_name, dynamic_model_name):
 
 def run(network_name, dynamic_model_name):
     network = None
-    if network_name == 'FCRW':
+    if network_name == FullyConnectedRandomWeights.name:
         network = FullyConnectedRandomWeights()
+    elif network_name == UCIOnline.name:
+        network = UCIOnline()
     else:
         print('Invalid network name')
         exit(0)
 
     dynamic_model = None
-    if dynamic_model_name == 'SDM1':
+    if dynamic_model_name == SyntheticDynamicModel1.name:
         dynamic_model = SyntheticDynamicModel1(network)
-    elif dynamic_model_name == 'E':
+    elif dynamic_model_name == EpidemicDynamicModel.name:
         dynamic_model = EpidemicDynamicModel(network)
     else:
         print('Invalid dynamic model name')
@@ -233,7 +223,7 @@ def run(network_name, dynamic_model_name):
         fittest_individual['coefficients'][3],
         fittest_individual['powers'][3]
     ))
-    _draw_error_plot(errors, network.name, dynamic_model.name)
+    _draw_error_plot(errors, network_name, dynamic_model_name)
 
 
 if __name__ == '__main__':

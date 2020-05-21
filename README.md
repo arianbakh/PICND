@@ -9,6 +9,7 @@
 # Networks
 
 - FCRW: Fully connected graph with 10 nodes and random edge weights
+- UCI: UCIOnline social network
 
 # Dynamic Models
 

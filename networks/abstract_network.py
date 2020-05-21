@@ -2,8 +2,7 @@ from abc import ABC, abstractmethod
 
 
 class Network(ABC):
-    def __init__(self, number_of_nodes):
-        self.number_of_nodes = number_of_nodes
+    def __init__(self):
         self.adjacency_matrix = self._create_adjacency_matrix()
 
     @abstractmethod

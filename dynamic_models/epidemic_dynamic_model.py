@@ -4,9 +4,10 @@ from dynamic_models.abstract_dynamic_model import DynamicModel
 
 
 class EpidemicDynamicModel(DynamicModel):
+    name = 'E'
+
     def __init__(self, network):
         super().__init__(network, delta_t=0.01)
-        self.name = 'E'
         self.offset_time_frames = 100
 
     def get_x(self, time_frames):
