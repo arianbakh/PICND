@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 
-class DynamicsModel(ABC):
+class DynamicModel(ABC):
     def __init__(self, network, delta_t):
         self.network = network
         self.delta_t = delta_t

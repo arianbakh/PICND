@@ -5,13 +5,14 @@ import os
 import pandas as pd
 import random
 import seaborn as sns
+import sys
 import time
 import warnings
 
 from matplotlib.backends import backend_gtk3
 
-from dynamic_models.epidemic_dynamics_model import EpidemicDynamicsModel
-from dynamic_models.synthetic_dynamics_model_1 import SyntheticDynamicsModel1
+from dynamic_models.epidemic_dynamic_model import EpidemicDynamicModel
+from dynamic_models.synthetic_dynamic_model_1 import SyntheticDynamicModel1
 from networks.fully_connected_random_weights import FullyConnectedRandomWeights
 from settings import OUTPUT_DIR
 
@@ -20,8 +21,6 @@ warnings.filterwarnings('ignore', module=backend_gtk3.__name__)
 sns.set()
 
 
-NUMBER_OF_NODES = 10
-DELTA_T = 0.01
 TIME_FRAMES = 100
 CHROMOSOME_SIZE = 4
 GENE_SIZE = 12  # bits
@@ -37,7 +36,7 @@ STEP = (POWER_RANGE[1] - POWER_RANGE[0]) / 2 ** GENE_SIZE
 
 def _get_theta(x, adjacency_matrix, powers):
     theta_list = []
-    for node_index in range(NUMBER_OF_NODES):
+    for node_index in range(x.shape[1]):
         x_i = x[:TIME_FRAMES, node_index]
         column_list = [
             np.ones(TIME_FRAMES),
@@ -46,7 +45,7 @@ def _get_theta(x, adjacency_matrix, powers):
 
         ij_terms = []
         j_terms = []
-        for j in range(NUMBER_OF_NODES):
+        for j in range(x.shape[1]):
             if j != node_index and adjacency_matrix[j, node_index]:
                 x_j = x[:TIME_FRAMES, j]
                 ij_terms.append(adjacency_matrix[j, node_index] * x_i ** powers[1] * x_j ** powers[2])
@@ -76,7 +75,7 @@ def _get_complete_individual(x, y, adjacency_matrix, chromosome):
         power = POWER_RANGE[0] + binary * STEP
         powers.append(power)
     theta = _get_theta(x, adjacency_matrix, powers)
-    stacked_y = np.concatenate([y[:, node_index] for node_index in range(NUMBER_OF_NODES)])
+    stacked_y = np.concatenate([y[:, node_index] for node_index in range(y.shape[1])])
     coefficients = np.linalg.lstsq(theta, stacked_y, rcond=None)[0]
     y_hat = np.matmul(theta, coefficients.T)
     mse = np.mean((stacked_y - y_hat) ** 2)
@@ -186,13 +185,25 @@ def _draw_error_plot(errors, network_name, dynamic_model_name):
     plt.close('all')
 
 
-def run():
-    network = FullyConnectedRandomWeights(NUMBER_OF_NODES)
+def run(network_name, dynamic_model_name):
+    network = None
+    if network_name == 'FCRW':
+        network = FullyConnectedRandomWeights()
+    else:
+        print('Invalid network name')
+        exit(0)
 
-    # dynamics_model = SyntheticDynamicsModel1(network, DELTA_T)  # TODO
-    dynamics_model = EpidemicDynamicsModel(network, DELTA_T)
-    x = dynamics_model.get_x(TIME_FRAMES)
-    y = dynamics_model.get_x_dot(x)
+    dynamic_model = None
+    if dynamic_model_name == 'SDM1':
+        dynamic_model = SyntheticDynamicModel1(network)
+    elif dynamic_model_name == 'E':
+        dynamic_model = EpidemicDynamicModel(network)
+    else:
+        print('Invalid dynamic model name')
+        exit(0)
+
+    x = dynamic_model.get_x(TIME_FRAMES)
+    y = dynamic_model.get_x_dot(x)
 
     population = Population(POPULATION, x, y, network.adjacency_matrix)
     fittest_individual = None
@@ -222,8 +233,11 @@ def run():
         fittest_individual['coefficients'][3],
         fittest_individual['powers'][3]
     ))
-    _draw_error_plot(errors, network.name, dynamics_model.name)
+    _draw_error_plot(errors, network.name, dynamic_model.name)
 
 
 if __name__ == '__main__':
-    run()
+    if len(sys.argv) != 3:
+        print('Invalid number of arguments')
+        exit(0)
+    run(sys.argv[1], sys.argv[2])
