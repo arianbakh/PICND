@@ -212,7 +212,7 @@ def run(network_name, dynamic_model_name):
         if counter % 100 == 0:
             print(fittest_individual['mse'])
     end_time = time.time()
-    print('took', int(end_time - start_time), 'seconds')
+    print('took', counter, 'iterations;', int(end_time - start_time), 'seconds')
     print('%f + %f * xi^%f + %f * sum Aij * xi^%f * xj^%f + %f * sum Aij * xj^%f' % (
         fittest_individual['coefficients'][0],
         fittest_individual['coefficients'][1],
