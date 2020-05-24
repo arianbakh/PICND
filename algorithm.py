@@ -19,7 +19,6 @@ from settings import OUTPUT_DIR, TIME_FRAMES, CHROMOSOME_SIZE, GENE_SIZE, MUTATI
     TERMINATION_CONDITION, POWER_RANGE, STEP
 
 warnings.filterwarnings('ignore', module=backend_gtk3.__name__)
-sns.set()
 
 
 def _get_theta(x, adjacency_matrix, powers):
@@ -162,13 +161,11 @@ def _draw_error_plot(errors, network_name, dynamic_model_name):
         'iterations': np.arange(len(errors)),
         'errors': np.array(errors),
     })
-    plt.subplots(figsize=(20, 10))
+    plt.subplots(figsize=(10, 5))
     ax = sns.lineplot(x='iterations', y='errors', data=data_frame)
-    ax.set(
-        xlabel='Iteration',
-        ylabel='log10(MSE) of Fittest Individual',
-        title='%s model on %s network' % (dynamic_model_name, network_name)
-    )
+    ax.set_title('%s model on %s network' % (dynamic_model_name, network_name), fontsize=16)
+    ax.set_xlabel('Iteration', fontsize=16)
+    ax.set_ylabel('log10(MSE) of Fittest Individual', fontsize=16)
     plt.savefig(os.path.join(OUTPUT_DIR, '%s_on_%s.png' % (dynamic_model_name, network_name)))
     plt.close('all')
 
