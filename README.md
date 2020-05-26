@@ -4,7 +4,7 @@
 
 # Usage
 
-- `python3 algorithm.py [network_name] [dynamics_model_name]`
+- `python3 algorithm.py [network_name] [dynamics_model_name] [method_name]`
 
 # Networks
 
@@ -15,3 +15,8 @@
 
 - SDM1: A synthetic dynamic model
 - E: Epidemic dynamic model
+
+# Methods
+
+- GA: A purely genetic algorithm approach
+- GA+LSO: Intermittent genetic algorithm and least squares optimization

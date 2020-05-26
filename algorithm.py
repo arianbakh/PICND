@@ -15,10 +15,15 @@ from dynamic_models.epidemic_dynamic_model import EpidemicDynamicModel
 from dynamic_models.synthetic_dynamic_model_1 import SyntheticDynamicModel1
 from networks.fully_connected_random_weights import FullyConnectedRandomWeights
 from networks.uci_online import UCIOnline
-from settings import OUTPUT_DIR, TIME_FRAMES, CHROMOSOME_SIZE, GENE_SIZE, MUTATION_CHANCE, POPULATION, CHILDREN, \
-    TERMINATION_CONDITION, POWER_RANGE, STEP
+from settings import OUTPUT_DIR, TIME_FRAMES, GA_LSO_CHROMOSOME_SIZE, GA_CHROMOSOME_SIZE, GENE_SIZE, MUTATION_CHANCE, \
+    POPULATION, CHILDREN, TERMINATION_CONDITION, POWER_RANGE, STEP
+
 
 warnings.filterwarnings('ignore', module=backend_gtk3.__name__)
+
+
+GA_METHOD_NAME = 'GA'
+GA_LSO_METHOD_NAME = 'GA+LSO'
 
 
 def _get_theta(x, adjacency_matrix, powers):
@@ -53,9 +58,40 @@ def _get_theta(x, adjacency_matrix, powers):
     return np.concatenate(theta_list)
 
 
-def _get_complete_individual(x, y, adjacency_matrix, chromosome):
+def _get_complete_individual_pure_ga(x, y, adjacency_matrix, chromosome):
+    numbers = []
+    for i in range(GA_CHROMOSOME_SIZE):
+        binary = 0
+        for j in range(GENE_SIZE):
+            binary += chromosome[i * GENE_SIZE + j] * 2 ** (GENE_SIZE - j - 1)
+        number = POWER_RANGE[0] + binary * STEP
+        numbers.append(number)
+
+    y_i_hats = []
+    for i in range(x.shape[1]):
+        x_i = x[:, i][:TIME_FRAMES]
+        y_i_hat = numbers[0] + numbers[1] * x_i ** numbers[2]
+        for j in range(x.shape[1]):
+            if i != j and adjacency_matrix[j, i]:
+                x_j = x[:, j][:TIME_FRAMES]
+                y_i_hat += numbers[3] * adjacency_matrix[j, i] * (x_i ** numbers[4]) * (x_j ** numbers[5])
+                y_i_hat += numbers[6] * adjacency_matrix[j, i] * (x_j ** numbers[7])
+        y_i_hats.append(y_i_hat)
+    y_hat = np.concatenate(y_i_hats)
+
+    stacked_y = np.concatenate([y[:, node_index] for node_index in range(y.shape[1])])
+    mse = np.mean((stacked_y - y_hat) ** 2)
+    return {
+        'chromosome': chromosome,
+        'numbers': numbers,
+        'mse': mse,
+        'fitness': 1 / mse,
+    }
+
+
+def _get_complete_individual_ga_lso(x, y, adjacency_matrix, chromosome):
     powers = []
-    for i in range(CHROMOSOME_SIZE):
+    for i in range(GA_LSO_CHROMOSOME_SIZE):
         binary = 0
         for j in range(GENE_SIZE):
             binary += chromosome[i * GENE_SIZE + j] * 2 ** (GENE_SIZE - j - 1)
@@ -66,27 +102,50 @@ def _get_complete_individual(x, y, adjacency_matrix, chromosome):
     coefficients = np.linalg.lstsq(theta, stacked_y, rcond=None)[0]
     y_hat = np.matmul(theta, coefficients.T)
     mse = np.mean((stacked_y - y_hat) ** 2)
+    numbers = [
+        coefficients[0],
+        coefficients[1],
+        powers[0],
+        coefficients[2],
+        powers[1],
+        powers[2],
+        coefficients[3],
+        powers[3]
+    ]
     return {
         'chromosome': chromosome,
-        'powers': powers,
-        'coefficients': coefficients,
+        'numbers': numbers,
         'mse': mse,
         'fitness': 1 / mse,
     }
 
 
 class Population:
-    def __init__(self, size, x, y, adjacency_matrix):
+    def __init__(self, size, x, y, adjacency_matrix, method_name):
         self.size = size
         self.x = x
         self.y = y
         self.adjacency_matrix = adjacency_matrix
+
+        self.method_name = method_name
+        self.get_complete_individual = None
+        self.chromosome_size = None
+        if self.method_name == GA_METHOD_NAME:
+            self.get_complete_individual = _get_complete_individual_pure_ga
+            self.chromosome_size = GA_CHROMOSOME_SIZE
+        elif self.method_name == GA_LSO_METHOD_NAME:
+            self.get_complete_individual = _get_complete_individual_ga_lso
+            self.chromosome_size = GA_LSO_CHROMOSOME_SIZE
+        else:
+            print('Invalid method name')
+            exit(0)
+
         self.individuals = self._get_complete_individuals(self._get_initial_individuals())
 
     def _get_complete_individuals(self, individuals):
         complete_individuals = []
         for individual in individuals:
-            complete_individuals.append(_get_complete_individual(
+            complete_individuals.append(self.get_complete_individual(
                 self.x,
                 self.y,
                 self.adjacency_matrix,
@@ -99,21 +158,19 @@ class Population:
         for i in range(self.size):
             individuals.append(
                 {
-                    'chromosome': [random.randint(0, 1) for _ in range(CHROMOSOME_SIZE * GENE_SIZE)],
+                    'chromosome': [random.randint(0, 1) for _ in range(self.chromosome_size * GENE_SIZE)],
                 }
             )
         return individuals
 
-    @staticmethod
-    def _crossover(chromosome1, chromosome2):
-        crossover_point = random.randint(0, CHROMOSOME_SIZE * GENE_SIZE - 1)
+    def _crossover(self, chromosome1, chromosome2):
+        crossover_point = random.randint(0, self.chromosome_size * GENE_SIZE - 1)
         offspring_chromosome = chromosome1[:crossover_point] + chromosome2[crossover_point:]
         return offspring_chromosome
 
-    @staticmethod
-    def _mutation(chromosome):
+    def _mutation(self, chromosome):
         mutated_chromosome = []
-        for i in range(CHROMOSOME_SIZE * GENE_SIZE):
+        for i in range(self.chromosome_size * GENE_SIZE):
             if random.random() < MUTATION_CHANCE:
                 mutated_chromosome.append(0 if chromosome[i] else 1)
             else:
@@ -144,7 +201,7 @@ class Population:
             if individual1_index != individual2_index:
                 chromosome1 = self.individuals[individual1_index]['chromosome']
                 chromosome2 = self.individuals[individual2_index]['chromosome']
-                offspring_chromosome = Population._mutation(Population._crossover(chromosome1, chromosome2))
+                offspring_chromosome = self._mutation(self._crossover(chromosome1, chromosome2))
                 children.append({
                     'chromosome': offspring_chromosome,
                 })
@@ -156,7 +213,7 @@ class Population:
         return self.individuals[0]  # fittest
 
 
-def _draw_error_plot(errors, network_name, dynamic_model_name):
+def _draw_error_plot(errors, network_name, dynamic_model_name, method_name):
     data_frame = pd.DataFrame({
         'iterations': np.arange(len(errors)),
         'errors': np.array(errors),
@@ -166,11 +223,11 @@ def _draw_error_plot(errors, network_name, dynamic_model_name):
     ax.set_title('%s model on %s network' % (dynamic_model_name, network_name), fontsize=16)
     ax.set_xlabel('Iteration', fontsize=16)
     ax.set_ylabel('log10(MSE) of Fittest Individual', fontsize=16)
-    plt.savefig(os.path.join(OUTPUT_DIR, '%s_on_%s.png' % (dynamic_model_name, network_name)))
+    plt.savefig(os.path.join(OUTPUT_DIR, '%s_on_%s_via_%s.png' % (dynamic_model_name, network_name, method_name)))
     plt.close('all')
 
 
-def run(network_name, dynamic_model_name):
+def run(network_name, dynamic_model_name, method_name):
     network = None
     if network_name == FullyConnectedRandomWeights.name:
         network = FullyConnectedRandomWeights()
@@ -192,7 +249,7 @@ def run(network_name, dynamic_model_name):
     x = dynamic_model.get_x(TIME_FRAMES)
     y = dynamic_model.get_x_dot(x)
 
-    population = Population(POPULATION, x, y, network.adjacency_matrix)
+    population = Population(POPULATION, x, y, network.adjacency_matrix, method_name)
     fittest_individual = None
     counter = 0
     best_fitness = 0
@@ -211,20 +268,20 @@ def run(network_name, dynamic_model_name):
     end_time = time.time()
     print('took', counter, 'iterations;', int(end_time - start_time), 'seconds')
     print('%f + %f * xi^%f + %f * sum Aij * xi^%f * xj^%f + %f * sum Aij * xj^%f' % (
-        fittest_individual['coefficients'][0],
-        fittest_individual['coefficients'][1],
-        fittest_individual['powers'][0],
-        fittest_individual['coefficients'][2],
-        fittest_individual['powers'][1],
-        fittest_individual['powers'][2],
-        fittest_individual['coefficients'][3],
-        fittest_individual['powers'][3]
+        fittest_individual['numbers'][0],
+        fittest_individual['numbers'][1],
+        fittest_individual['numbers'][2],
+        fittest_individual['numbers'][3],
+        fittest_individual['numbers'][4],
+        fittest_individual['numbers'][5],
+        fittest_individual['numbers'][6],
+        fittest_individual['numbers'][7]
     ))
-    _draw_error_plot(errors, network_name, dynamic_model_name)
+    _draw_error_plot(errors, network_name, dynamic_model_name, method_name)
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 4:
         print('Invalid number of arguments')
         exit(0)
-    run(sys.argv[1], sys.argv[2])
+    run(sys.argv[1], sys.argv[2], sys.argv[3])
