@@ -64,19 +64,21 @@ def _get_complete_individual_pure_ga(x, y, adjacency_matrix, chromosome):
         binary = 0
         for j in range(GENE_SIZE):
             binary += chromosome[i * GENE_SIZE + j] * 2 ** (GENE_SIZE - j - 1)
-        number = POWER_RANGE[0] + binary * STEP
+        if i in [0, 1, 3, 6]:  # coefficients
+            number = POWER_RANGE[0] + binary * STEP - COEFFICIENT_RANGE_OFFSET
+        else:  # powers
+            number = POWER_RANGE[0] + binary * STEP
         numbers.append(number)
 
     y_i_hats = []
     for i in range(x.shape[1]):
         x_i = x[:, i][:TIME_FRAMES]
-        y_i_hat = (numbers[0] - COEFFICIENT_RANGE_OFFSET) + (numbers[1] - COEFFICIENT_RANGE_OFFSET) * x_i ** numbers[2]
+        y_i_hat = numbers[0] + numbers[1] * x_i ** numbers[2]
         for j in range(x.shape[1]):
             if i != j and adjacency_matrix[j, i]:
                 x_j = x[:, j][:TIME_FRAMES]
-                y_i_hat += (numbers[3] - COEFFICIENT_RANGE_OFFSET) * adjacency_matrix[j, i] * (x_i ** numbers[4]) * \
-                           (x_j ** numbers[5])
-                y_i_hat += (numbers[6] - COEFFICIENT_RANGE_OFFSET) * adjacency_matrix[j, i] * (x_j ** numbers[7])
+                y_i_hat += numbers[3] * adjacency_matrix[j, i] * (x_i ** numbers[4]) * (x_j ** numbers[5])
+                y_i_hat += numbers[6] * adjacency_matrix[j, i] * (x_j ** numbers[7])
         y_i_hats.append(y_i_hat)
     y_hat = np.concatenate(y_i_hats)
 
