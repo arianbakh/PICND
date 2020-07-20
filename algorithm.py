@@ -12,10 +12,13 @@ import warnings
 from matplotlib.backends import backend_gtk3
 
 from dynamic_models.epidemic_dynamic_model import EpidemicDynamicModel
+from dynamic_models.population_dynamic_model import PopulationDynamicModel
+from dynamic_models.regulatory_dynamic_model_1 import RegulatoryDynamicModel1
+from dynamic_models.regulatory_dynamic_model_2 import RegulatoryDynamicModel2
 from dynamic_models.synthetic_dynamic_model_1 import SyntheticDynamicModel1
 from networks.fully_connected_random_weights import FullyConnectedRandomWeights
 from networks.uci_online import UCIOnline
-from settings import OUTPUT_DIR, TIME_FRAMES, GA_LSO_CHROMOSOME_SIZE, GA_CHROMOSOME_SIZE, GENE_SIZE, MUTATION_CHANCE, \
+from settings import OUTPUT_DIR, TIME_FRAMES, D3CND_CHROMOSOME_SIZE, GA_CHROMOSOME_SIZE, GENE_SIZE, MUTATION_CHANCE, \
     POPULATION, CHILDREN, TERMINATION_CONDITION, POWER_RANGE, COEFFICIENT_RANGE_OFFSET, STEP
 
 
@@ -23,7 +26,7 @@ warnings.filterwarnings('ignore', module=backend_gtk3.__name__)
 
 
 GA_METHOD_NAME = 'GA'
-GA_LSO_METHOD_NAME = 'GA+LSO'
+D3CND_METHOD_NAME = 'D3CND'
 
 
 def _get_theta(x, adjacency_matrix, powers):
@@ -35,21 +38,28 @@ def _get_theta(x, adjacency_matrix, powers):
             x_i ** powers[0],
         ]
 
-        ij_terms = []
-        j_terms = []
+        first_ij_terms = []
+        first_j_terms = []
+        second_j_terms = []
         for j in range(x.shape[1]):
             if j != node_index and adjacency_matrix[j, node_index]:
                 x_j = x[:TIME_FRAMES, j]
-                ij_terms.append(adjacency_matrix[j, node_index] * x_i ** powers[1] * x_j ** powers[2])
-                j_terms.append(adjacency_matrix[j, node_index] * x_j ** powers[3])
-        if ij_terms:
-            ij_column = np.sum(ij_terms, axis=0)
-            column_list.append(ij_column)
+                first_ij_terms.append(adjacency_matrix[j, node_index] * x_i ** powers[1] * x_j ** powers[2])
+                first_j_terms.append(adjacency_matrix[j, node_index] * x_j ** powers[3])
+                second_j_terms.append(adjacency_matrix[j, node_index] * (1 - 1 / (1 + x_j ** powers[4])))
+        if first_ij_terms:
+            first_ij_column = np.sum(first_ij_terms, axis=0)
+            column_list.append(first_ij_column)
         else:
             column_list.append(np.zeros(TIME_FRAMES))
-        if j_terms:
-            j_column = np.sum(j_terms, axis=0)
-            column_list.append(j_column)
+        if first_j_terms:
+            first_j_column = np.sum(first_j_terms, axis=0)
+            column_list.append(first_j_column)
+        else:
+            column_list.append(np.zeros(TIME_FRAMES))
+        if second_j_terms:
+            second_j_column = np.sum(second_j_terms, axis=0)
+            column_list.append(second_j_column)
         else:
             column_list.append(np.zeros(TIME_FRAMES))
 
@@ -64,7 +74,7 @@ def _get_complete_individual_pure_ga(x, y, adjacency_matrix, chromosome):
         binary = 0
         for j in range(GENE_SIZE):
             binary += chromosome[i * GENE_SIZE + j] * 2 ** (GENE_SIZE - j - 1)
-        if i in [0, 1, 3, 6]:  # coefficients
+        if i in [0, 1, 3, 6, 8]:  # coefficients
             number = POWER_RANGE[0] + binary * STEP - COEFFICIENT_RANGE_OFFSET
         else:  # powers
             number = POWER_RANGE[0] + binary * STEP
@@ -79,6 +89,7 @@ def _get_complete_individual_pure_ga(x, y, adjacency_matrix, chromosome):
                 x_j = x[:, j][:TIME_FRAMES]
                 y_i_hat += numbers[3] * adjacency_matrix[j, i] * (x_i ** numbers[4]) * (x_j ** numbers[5])
                 y_i_hat += numbers[6] * adjacency_matrix[j, i] * (x_j ** numbers[7])
+                y_i_hat += numbers[8] * adjacency_matrix[j, i] * (1 - 1 / (1 + x_j ** numbers[9]))
         y_i_hats.append(y_i_hat)
     y_hat = np.concatenate(y_i_hats)
 
@@ -92,9 +103,9 @@ def _get_complete_individual_pure_ga(x, y, adjacency_matrix, chromosome):
     }
 
 
-def _get_complete_individual_ga_lso(x, y, adjacency_matrix, chromosome):
+def _get_complete_individual_d3cnd(x, y, adjacency_matrix, chromosome):
     powers = []
-    for i in range(GA_LSO_CHROMOSOME_SIZE):
+    for i in range(D3CND_CHROMOSOME_SIZE):
         binary = 0
         for j in range(GENE_SIZE):
             binary += chromosome[i * GENE_SIZE + j] * 2 ** (GENE_SIZE - j - 1)
@@ -113,7 +124,9 @@ def _get_complete_individual_ga_lso(x, y, adjacency_matrix, chromosome):
         powers[1],
         powers[2],
         coefficients[3],
-        powers[3]
+        powers[3],
+        coefficients[4],
+        powers[4],
     ]
     return {
         'chromosome': chromosome,
@@ -136,9 +149,9 @@ class Population:
         if self.method_name == GA_METHOD_NAME:
             self.get_complete_individual = _get_complete_individual_pure_ga
             self.chromosome_size = GA_CHROMOSOME_SIZE
-        elif self.method_name == GA_LSO_METHOD_NAME:
-            self.get_complete_individual = _get_complete_individual_ga_lso
-            self.chromosome_size = GA_LSO_CHROMOSOME_SIZE
+        elif self.method_name == D3CND_METHOD_NAME:
+            self.get_complete_individual = _get_complete_individual_d3cnd
+            self.chromosome_size = D3CND_CHROMOSOME_SIZE
         else:
             print('Invalid method name')
             exit(0)
@@ -245,6 +258,12 @@ def run(network_name, dynamic_model_name, method_name):
         dynamic_model = SyntheticDynamicModel1(network)
     elif dynamic_model_name == EpidemicDynamicModel.name:
         dynamic_model = EpidemicDynamicModel(network)
+    elif dynamic_model_name == PopulationDynamicModel.name:
+        dynamic_model = PopulationDynamicModel(network)
+    elif dynamic_model_name == RegulatoryDynamicModel1.name:
+        dynamic_model = RegulatoryDynamicModel1(network)
+    elif dynamic_model_name == RegulatoryDynamicModel2.name:
+        dynamic_model = RegulatoryDynamicModel2(network)
     else:
         print('Invalid dynamic model name')
         exit(0)
@@ -270,16 +289,19 @@ def run(network_name, dynamic_model_name, method_name):
             print(fittest_individual['mse'])
     end_time = time.time()
     print('took', counter, 'iterations;', int(end_time - start_time), 'seconds')
-    print('%f + %f * xi^%f + %f * sum Aij * xi^%f * xj^%f + %f * sum Aij * xj^%f' % (
-        fittest_individual['numbers'][0],
-        fittest_individual['numbers'][1],
-        fittest_individual['numbers'][2],
-        fittest_individual['numbers'][3],
-        fittest_individual['numbers'][4],
-        fittest_individual['numbers'][5],
-        fittest_individual['numbers'][6],
-        fittest_individual['numbers'][7]
-    ))
+    print('%f + %f * xi^%f + %f * sum Aij * xi^%f * xj^%f + %f * sum Aij * xj^%f + %f * sum Aij (1 - 1 / (1 + xj^%f))'
+          % (
+            fittest_individual['numbers'][0],
+            fittest_individual['numbers'][1],
+            fittest_individual['numbers'][2],
+            fittest_individual['numbers'][3],
+            fittest_individual['numbers'][4],
+            fittest_individual['numbers'][5],
+            fittest_individual['numbers'][6],
+            fittest_individual['numbers'][7],
+            fittest_individual['numbers'][8],
+            fittest_individual['numbers'][9]
+          ))
     _draw_error_plot(errors, network_name, dynamic_model_name, method_name)
 
 

@@ -15,8 +15,11 @@
 
 - SDM1: A synthetic dynamic model
 - E: Epidemic dynamic model
+- R1: Simple regulatory dynamic model
+- R2: Regulatory dynamic model with non-integer exponents
+- P: Population dynamic model
 
 # Methods
 
 - GA: A purely genetic algorithm approach
-- GA+LSO: Intermittent genetic algorithm and least squares optimization
+- D3CND: Our algorithm
