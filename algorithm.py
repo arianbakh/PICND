@@ -9,6 +9,7 @@ import sys
 import time
 import warnings
 
+from matplotlib import rc
 from matplotlib.backends import backend_gtk3
 
 from dynamic_models.epidemic_dynamic_model import EpidemicDynamicModel
@@ -234,13 +235,31 @@ def _draw_error_plot(errors, network_name, dynamic_model_name, method_name):
         'iterations': np.arange(len(errors)),
         'errors': np.array(errors),
     })
-    plt.subplots(figsize=(10, 5))
-    ax = sns.lineplot(x='iterations', y='errors', data=data_frame)
-    ax.set_title('%s model on %s network' % (dynamic_model_name, network_name), fontsize=16)
-    ax.set_xlabel('Iteration', fontsize=16)
-    ax.set_ylabel('log10(MSE) of Fittest Individual', fontsize=16)
+    rc('font', weight=600)
+    plt.subplots(figsize=(10, 6))
+    ax = sns.lineplot(x='iterations', y='errors', data=data_frame, linewidth=4)
+    ax.set_title('%s model on %s network' % (dynamic_model_name, network_name), fontsize=28, fontweight=600)
+    ax.set_xlabel('Iteration', fontsize=20, fontweight=600)
+    ax.set_ylabel('$log_{10}(MSE)$ of Fittest Individual', fontsize=20, fontweight=600)
+    for axis in ['top', 'bottom', 'left', 'right']:
+        ax.spines[axis].set_linewidth(3)
+    ax.tick_params(width=3, length=10, labelsize=16)
     plt.savefig(os.path.join(OUTPUT_DIR, '%s_on_%s_via_%s.png' % (dynamic_model_name, network_name, method_name)))
     plt.close('all')
+
+
+def _save_info(exec_time, iterations, fittest_individual, network_name, dynamic_model_name, method_name):
+    info_file_path = os.path.join(OUTPUT_DIR, '%s_on_%s_via_%s.txt' % (dynamic_model_name, network_name, method_name))
+    with open(info_file_path, 'w') as info_file:
+        info_file.write('exec_time: %ds\n' % exec_time)
+        info_file.write('iterations: %d\n' % iterations)
+        info_file.write('fittest_mse: %f\n' % fittest_individual['mse'])
+        info_file.write(
+            '%f + %f * xi^%f + %f * sum Aij * xi^%f * xj^%f + %f * sum Aij * xj^%f + %f * sum Aij (1 - 1 / (1 + xj^%f))'
+            % tuple(fittest_individual['numbers'])
+        )
+    with open(info_file_path, 'r') as info_file:
+        print(info_file.read())
 
 
 def run(network_name, dynamic_model_name, method_name):
@@ -288,21 +307,8 @@ def run(network_name, dynamic_model_name, method_name):
         if counter % 100 == 0:
             print(fittest_individual['mse'])
     end_time = time.time()
-    print('took', counter, 'iterations;', int(end_time - start_time), 'seconds')
-    print('%f + %f * xi^%f + %f * sum Aij * xi^%f * xj^%f + %f * sum Aij * xj^%f + %f * sum Aij (1 - 1 / (1 + xj^%f))'
-          % (
-            fittest_individual['numbers'][0],
-            fittest_individual['numbers'][1],
-            fittest_individual['numbers'][2],
-            fittest_individual['numbers'][3],
-            fittest_individual['numbers'][4],
-            fittest_individual['numbers'][5],
-            fittest_individual['numbers'][6],
-            fittest_individual['numbers'][7],
-            fittest_individual['numbers'][8],
-            fittest_individual['numbers'][9]
-          ))
     _draw_error_plot(errors, network_name, dynamic_model_name, method_name)
+    _save_info(int(end_time - start_time), counter, fittest_individual, network_name, dynamic_model_name, method_name)
 
 
 if __name__ == '__main__':
