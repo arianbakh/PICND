@@ -20,14 +20,10 @@ from dynamic_models.synthetic_dynamic_model_1 import SyntheticDynamicModel1
 from networks.fully_connected_random_weights import FullyConnectedRandomWeights
 from networks.uci_online import UCIOnline
 from settings import OUTPUT_DIR, TIME_FRAMES, D3CND_CHROMOSOME_SIZE, GA_CHROMOSOME_SIZE, GENE_SIZE, MUTATION_CHANCE, \
-    POPULATION, CHILDREN, TERMINATION_CONDITION, POWER_RANGE, COEFFICIENT_RANGE_OFFSET, STEP
-
+    POPULATION, CHILDREN, TERMINATION_CONDITION, POWER_RANGE, COEFFICIENT_RANGE_OFFSET, STEP, GA_METHOD_NAME, \
+    D3CND_METHOD_NAME
 
 warnings.filterwarnings('ignore', module=backend_gtk3.__name__)
-
-
-GA_METHOD_NAME = 'GA'
-D3CND_METHOD_NAME = 'D3CND'
 
 
 def _get_theta(x, adjacency_matrix, powers):
@@ -236,11 +232,11 @@ def _draw_error_plot(errors, network_name, dynamic_model_name, method_name):
         'errors': np.array(errors),
     })
     rc('font', weight=600)
-    plt.subplots(figsize=(10, 6))
+    plt.subplots(figsize=(11, 6))
     ax = sns.lineplot(x='iterations', y='errors', data=data_frame, linewidth=4)
-    ax.set_title('%s model on %s network' % (dynamic_model_name, network_name), fontsize=28, fontweight=600)
+    ax.set_title('%s on %s via %s' % (dynamic_model_name, network_name, method_name), fontsize=28, fontweight=600)
     ax.set_xlabel('Iteration', fontsize=20, fontweight=600)
-    ax.set_ylabel('$log_{10}(MSE)$ of Fittest Individual', fontsize=20, fontweight=600)
+    ax.set_ylabel('$log_{10}(MSE)$', fontsize=20, fontweight=600)
     for axis in ['top', 'bottom', 'left', 'right']:
         ax.spines[axis].set_linewidth(3)
     ax.tick_params(width=3, length=10, labelsize=16)
@@ -253,7 +249,7 @@ def _save_info(exec_time, iterations, fittest_individual, network_name, dynamic_
     with open(info_file_path, 'w') as info_file:
         info_file.write('exec_time: %ds\n' % exec_time)
         info_file.write('iterations: %d\n' % iterations)
-        info_file.write('fittest_mse: %f\n' % fittest_individual['mse'])
+        info_file.write('fittest_mse: %2e\n' % fittest_individual['mse'])
         info_file.write(
             '%f + %f * xi^%f + %f * sum Aij * xi^%f * xj^%f + %f * sum Aij * xj^%f + %f * sum Aij (1 - 1 / (1 + xj^%f))'
             % tuple(fittest_individual['numbers'])
