@@ -26,6 +26,7 @@ from settings import OUTPUT_DIR, TIME_FRAMES, D3CND_CHROMOSOME_SIZE, GA_CHROMOSO
     POPULATION, CHILDREN, TERMINATION_CONDITION, POWER_RANGE, COEFFICIENT_RANGE_OFFSET, STEP, GA_METHOD_NAME, \
     D3CND_METHOD_NAME
 
+
 warnings.filterwarnings('ignore', module=backend_gtk3.__name__)
 
 
@@ -237,9 +238,9 @@ def _draw_error_plot(errors, network_name, dynamic_model_name, method_name):
     rc('font', weight=600)
     plt.subplots(figsize=(11, 6))
     ax = sns.lineplot(x='iterations', y='errors', data=data_frame, linewidth=4)
-    ax.set_title('%s on %s via %s' % (dynamic_model_name, network_name, method_name), fontsize=28, fontweight=600)
-    ax.set_xlabel('Iteration', fontsize=20, fontweight=600)
-    ax.set_ylabel('$log_{10}(MSE)$', fontsize=20, fontweight=600)
+    ax.set_title('%s on %s via %s' % (dynamic_model_name, network_name, method_name), fontsize=28, fontweight=500)
+    ax.set_xlabel('Iteration', fontsize=20, fontweight=500)
+    ax.set_ylabel('$log_{10}(MSE)$', fontsize=20, fontweight=500)
     for axis in ['top', 'bottom', 'left', 'right']:
         ax.spines[axis].set_linewidth(3)
     ax.tick_params(width=3, length=10, labelsize=16)

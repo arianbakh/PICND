@@ -1,4 +1,15 @@
+import matplotlib.pyplot as plt
+import networkx as nx
+import os
 import random
+import warnings
+
+from matplotlib.backends import backend_gtk3
+
+from settings import OUTPUT_DIR
+
+
+warnings.filterwarnings('ignore', module=backend_gtk3.__name__)
 
 
 RESTART_PROBABILITY = 0.15
@@ -17,3 +28,10 @@ def random_walk_sample(graph, n):
                 break
     subgraph = graph.subgraph(selected_nodes)
     return subgraph
+
+
+def save_graph_figure(graph, name):
+    plt.title(name, fontsize=28)
+    nx.draw(graph, node_size=100)
+    plt.savefig(os.path.join(OUTPUT_DIR, '%s.png' % name))
+    plt.close('all')

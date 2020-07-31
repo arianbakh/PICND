@@ -3,8 +3,8 @@ import os
 import tarfile
 import urllib.request
 
-from datetime import datetime, timedelta
 from networks.abstract_network import Network
+from networks.tools import random_walk_sample, save_graph_figure
 from settings import DATA_DIR
 
 
@@ -18,8 +18,7 @@ class UCIOnline(Network):
     name = 'UCI'
 
     def __init__(self):
-        self.offset_days = 0
-        self.included_days = 5
+        self.sample_size = 20
         super().__init__()
 
     @staticmethod
@@ -45,16 +44,13 @@ class UCIOnline(Network):
 
     def _create_adjacency_matrix(self):
         graph = nx.Graph()
-        first_datetime = None
         for from_id, to_id, count, timestamp in UCIOnline._data_generator():
-            if first_datetime is None:
-                first_datetime = datetime.utcfromtimestamp(timestamp)
-            else:
-                current_datetime = datetime.utcfromtimestamp(timestamp)
-                if first_datetime + timedelta(days=self.offset_days) < current_datetime < \
-                        first_datetime + timedelta(days=self.offset_days + self.included_days):
-                    graph.add_edge(from_id, to_id)
-                elif current_datetime > first_datetime + timedelta(days=self.offset_days + self.included_days):
-                    break
-        self.number_of_nodes = graph.number_of_nodes()
-        return nx.to_numpy_array(graph)
+            graph.add_edge(from_id, to_id)
+
+        sorted_components = sorted(nx.connected_components(graph), key=len, reverse=True)
+        giant_component = graph.subgraph(sorted_components[0])
+
+        subgraph = random_walk_sample(giant_component, self.sample_size)
+        self.number_of_nodes = len(subgraph)
+        save_graph_figure(subgraph, UCIOnline.name)
+        return nx.to_numpy_array(subgraph)

@@ -2,6 +2,7 @@ import networkx as nx
 import numpy as np
 
 from networks.abstract_network import Network
+from networks.tools import save_graph_figure
 from settings import PLANT_POLLINATOR_CSV_PATH
 
 
@@ -32,4 +33,5 @@ class ECO2(Network):
         sorted_components = sorted(nx.connected_components(graph), key=len, reverse=True)
         giant_component = graph.subgraph(sorted_components[0])
         self.number_of_nodes = len(giant_component)
+        save_graph_figure(giant_component, ECO2.name)
         return nx.to_numpy_array(giant_component)

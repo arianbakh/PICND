@@ -6,7 +6,7 @@ import sys
 import urllib.request
 
 from networks.abstract_network import Network
-from networks.tools import random_walk_sample
+from networks.tools import random_walk_sample, save_graph_figure
 from settings import DATA_DIR
 
 
@@ -19,7 +19,7 @@ class PPI1(Network):
     name = 'PPI1'
 
     def __init__(self):
-        self.sample_size = 15
+        self.sample_size = 20
         super().__init__()
 
     @staticmethod
@@ -60,4 +60,5 @@ class PPI1(Network):
         subgraph = random_walk_sample(graph, self.sample_size)
 
         self.number_of_nodes = subgraph.number_of_nodes()
+        save_graph_figure(subgraph, PPI1.name)
         return nx.to_numpy_array(subgraph)
