@@ -1,6 +1,7 @@
 .idea/*
 data/*
 !data/PLACEHOLDER
+!data/M_PL_007.csv
 output/*
 !output/PLACEHOLDER
 

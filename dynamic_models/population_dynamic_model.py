@@ -8,7 +8,7 @@ class PopulationDynamicModel(DynamicModel):
 
     def __init__(self, network):
         super().__init__(network, delta_t=0.01)
-        self.offset_time_frames = 100
+        self.offset_time_frames = 50
 
     def get_x(self, time_frames):
         number_of_nodes = self.network.number_of_nodes

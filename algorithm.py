@@ -19,6 +19,8 @@ from dynamic_models.regulatory_dynamic_model_2 import RegulatoryDynamicModel2
 from dynamic_models.synthetic_dynamic_model_1 import SyntheticDynamicModel1
 from networks.fully_connected_random_weights import FullyConnectedRandomWeights
 from networks.uci_online import UCIOnline
+from networks.eco1 import ECO1
+from networks.eco2 import ECO2
 from settings import OUTPUT_DIR, TIME_FRAMES, D3CND_CHROMOSOME_SIZE, GA_CHROMOSOME_SIZE, GENE_SIZE, MUTATION_CHANCE, \
     POPULATION, CHILDREN, TERMINATION_CONDITION, POWER_RANGE, COEFFICIENT_RANGE_OFFSET, STEP, GA_METHOD_NAME, \
     D3CND_METHOD_NAME
@@ -264,6 +266,10 @@ def run(network_name, dynamic_model_name, method_name):
         network = FullyConnectedRandomWeights()
     elif network_name == UCIOnline.name:
         network = UCIOnline()
+    elif network_name == ECO1.name:
+        network = ECO1()
+    elif network_name == ECO2.name:
+        network = ECO2()
     else:
         print('Invalid network name')
         exit(0)
