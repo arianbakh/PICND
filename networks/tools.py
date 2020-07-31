@@ -31,7 +31,7 @@ def random_walk_sample(graph, n):
 
 
 def save_graph_figure(graph, name):
-    plt.title(name, fontsize=28)
+    plt.title(name, fontsize=16)
     nx.draw(graph, node_size=100)
     plt.savefig(os.path.join(OUTPUT_DIR, '%s.png' % name))
     plt.close('all')

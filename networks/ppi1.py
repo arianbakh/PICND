@@ -55,7 +55,7 @@ class PPI1(Network):
     def _create_adjacency_matrix(self):
         graph = nx.Graph()
         for from_id, to_id, weight in PPI1._data_generator():
-            graph.add_edge(from_id, to_id)
+            graph.add_edge(from_id, to_id, weight=weight)
 
         subgraph = random_walk_sample(graph, self.sample_size)
 
