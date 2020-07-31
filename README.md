@@ -8,8 +8,11 @@
 
 # Networks
 
-- FCRW: Fully connected graph with 10 nodes and random edge weights
+- FCRW: Fully connected graph with random edge weights
 - UCI: UCIOnline social network
+- ECO1: Pollinator-pollinator indirect interaction network
+- ECO2: Plant-plant indirect interaction network
+- PPI1: Yeast protein-protein interaction sampled network
 
 # Dynamic Models
 

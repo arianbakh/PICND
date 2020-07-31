@@ -21,6 +21,7 @@ from networks.fully_connected_random_weights import FullyConnectedRandomWeights
 from networks.uci_online import UCIOnline
 from networks.eco1 import ECO1
 from networks.eco2 import ECO2
+from networks.ppi1 import PPI1
 from settings import OUTPUT_DIR, TIME_FRAMES, D3CND_CHROMOSOME_SIZE, GA_CHROMOSOME_SIZE, GENE_SIZE, MUTATION_CHANCE, \
     POPULATION, CHILDREN, TERMINATION_CONDITION, POWER_RANGE, COEFFICIENT_RANGE_OFFSET, STEP, GA_METHOD_NAME, \
     D3CND_METHOD_NAME
@@ -270,6 +271,8 @@ def run(network_name, dynamic_model_name, method_name):
         network = ECO1()
     elif network_name == ECO2.name:
         network = ECO2()
+    elif network_name == PPI1.name:
+        network = PPI1()
     else:
         print('Invalid network name')
         exit(0)
