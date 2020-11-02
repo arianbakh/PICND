@@ -23,8 +23,8 @@ from networks.eco1 import ECO1
 from networks.eco2 import ECO2
 from networks.ppi1 import PPI1
 from settings import OUTPUT_DIR, TIME_FRAMES, D3CND_CHROMOSOME_SIZE, GA_CHROMOSOME_SIZE, GENE_SIZE, MUTATION_CHANCE, \
-    POPULATION, CHILDREN, TERMINATION_CONDITION, POWER_RANGE, COEFFICIENT_RANGE_OFFSET, STEP, GA_METHOD_NAME, \
-    D3CND_METHOD_NAME
+    POPULATION, CHILDREN, MAX_EXECUTION_TIME, EXPONENT_RANGE, COEFFICIENT_RANGE_OFFSET, STEP, GA_METHOD_NAME, \
+    D3CND_METHOD_NAME, EPSILON
 
 
 warnings.filterwarnings('ignore', module=backend_gtk3.__name__)
@@ -69,16 +69,17 @@ def _get_theta(x, adjacency_matrix, powers):
     return np.concatenate(theta_list)
 
 
-def _get_complete_individual_pure_ga(x, y, adjacency_matrix, chromosome):
+def _get_complete_individual_ga(x, y, adjacency_matrix, chromosome, initial):
+    # the "initial" parameter is necessary in order to keep the format similar to d3cnd function
     numbers = []
     for i in range(GA_CHROMOSOME_SIZE):
         binary = 0
         for j in range(GENE_SIZE):
             binary += chromosome[i * GENE_SIZE + j] * 2 ** (GENE_SIZE - j - 1)
         if i in [0, 1, 3, 6, 8]:  # coefficients
-            number = POWER_RANGE[0] + binary * STEP - COEFFICIENT_RANGE_OFFSET
+            number = EXPONENT_RANGE[0] + binary * STEP - COEFFICIENT_RANGE_OFFSET
         else:  # powers
-            number = POWER_RANGE[0] + binary * STEP
+            number = EXPONENT_RANGE[0] + binary * STEP
         numbers.append(number)
 
     y_i_hats = []
@@ -104,17 +105,21 @@ def _get_complete_individual_pure_ga(x, y, adjacency_matrix, chromosome):
     }
 
 
-def _get_complete_individual_d3cnd(x, y, adjacency_matrix, chromosome):
+def _get_complete_individual_d3cnd(x, y, adjacency_matrix, chromosome, initial):
     powers = []
     for i in range(D3CND_CHROMOSOME_SIZE):
         binary = 0
         for j in range(GENE_SIZE):
             binary += chromosome[i * GENE_SIZE + j] * 2 ** (GENE_SIZE - j - 1)
-        power = POWER_RANGE[0] + binary * STEP
+        power = EXPONENT_RANGE[0] + binary * STEP
         powers.append(power)
     theta = _get_theta(x, adjacency_matrix, powers)
     stacked_y = np.concatenate([y[:, node_index] for node_index in range(y.shape[1])])
-    coefficients = np.linalg.lstsq(theta, stacked_y, rcond=None)[0]
+    if initial:
+        coefficients = np.random.rand(theta.shape[1]) * (EXPONENT_RANGE[1] - EXPONENT_RANGE[0]) - EXPONENT_RANGE[0] - \
+                       COEFFICIENT_RANGE_OFFSET
+    else:
+        coefficients = np.linalg.lstsq(theta, stacked_y, rcond=None)[0]
     y_hat = np.matmul(theta, coefficients.T)
     mse = np.mean((stacked_y - y_hat) ** 2)
     numbers = [
@@ -148,7 +153,7 @@ class Population:
         self.get_complete_individual = None
         self.chromosome_size = None
         if self.method_name == GA_METHOD_NAME:
-            self.get_complete_individual = _get_complete_individual_pure_ga
+            self.get_complete_individual = _get_complete_individual_ga
             self.chromosome_size = GA_CHROMOSOME_SIZE
         elif self.method_name == D3CND_METHOD_NAME:
             self.get_complete_individual = _get_complete_individual_d3cnd
@@ -157,9 +162,9 @@ class Population:
             print('Invalid method name')
             exit(0)
 
-        self.individuals = self._get_complete_individuals(self._get_initial_individuals())
+        self.individuals = self._get_complete_individuals(self._get_initial_individuals(), initial=True)
 
-    def _get_complete_individuals(self, individuals):
+    def _get_complete_individuals(self, individuals, initial):
         complete_individuals = []
         for individual in individuals:
             complete_individuals.append(self.get_complete_individual(
@@ -167,6 +172,7 @@ class Population:
                 self.y,
                 self.adjacency_matrix,
                 individual['chromosome'],
+                initial
             ))
         return complete_individuals
 
@@ -200,7 +206,7 @@ class Population:
         selected_index = 0
         sum_fitness = sorted_individuals[0]['fitness']
         for i in range(1, len(sorted_individuals)):
-            if sum_fitness / total_fitness > random_value:
+            if (sum_fitness / total_fitness + (i + 1) * EPSILON) > (random_value + len(sorted_individuals) * EPSILON):
                 break
             selected_index = i
             sum_fitness += sorted_individuals[i]['fitness']
@@ -222,7 +228,7 @@ class Population:
                 children.append({
                     'chromosome': offspring_chromosome,
                 })
-        children = self._get_complete_individuals(children)
+        children = self._get_complete_individuals(children, initial=False)
 
         new_individuals = sorted(self.individuals + children, key=lambda individual: -1 * individual['fitness'])
         self.individuals = new_individuals[:self.size]
@@ -297,19 +303,17 @@ def run(network_name, dynamic_model_name, method_name):
     y = dynamic_model.get_x_dot(x)
 
     population = Population(POPULATION, x, y, network.adjacency_matrix, method_name)
-    fittest_individual = None
+    fittest_individual = sorted(population.individuals, key=lambda individual: -1 * individual['fitness'])[0]
     counter = 0
     best_fitness = 0
-    best_index = 0
-    errors = []
+    errors = [math.log10(fittest_individual['mse'])]
     start_time = time.time()
-    while counter - best_index < TERMINATION_CONDITION:
+    while time.time() - start_time < MAX_EXECUTION_TIME:
         counter += 1
         fittest_individual = population.run_single_iteration()
         errors.append(math.log10(fittest_individual['mse']))
         if fittest_individual['fitness'] > best_fitness:
             best_fitness = fittest_individual['fitness']
-            best_index = counter
         if counter % 100 == 0:
             print(fittest_individual['mse'])
     end_time = time.time()

@@ -1,17 +1,16 @@
 import networkx as nx
 import os
-import tarfile
 import urllib.request
+import zipfile
 
 from networks.abstract_network import Network
 from networks.tools import random_walk_sample, save_graph_figure
 from settings import DATA_DIR
 
 
-UCI_ONLINE_URL = 'http://konect.uni-koblenz.de/downloads/tsv/opsahl-ucsocial.tar.bz2'
-UCI_ONLINE_TAR_PATH = os.path.join(DATA_DIR, 'opsahl-ucsocial.tar.bz2')
-UCI_ONLINE_DIR = os.path.join(DATA_DIR, 'opsahl-ucsocial')
-UCI_ONLINE_TSV_PATH = os.path.join(UCI_ONLINE_DIR, 'out.opsahl-ucsocial')
+UCI_ONLINE_URL = 'http://nrvis.com/download/data/misc/opsahl-ucsocial.zip'
+UCI_ONLINE_ZIP_PATH = os.path.join(DATA_DIR, 'opsahl-ucsocial.zip')
+UCI_ONLINE_CSV_PATH = os.path.join(DATA_DIR, 'opsahl-ucsocial.edges')
 
 
 class UCIOnline(Network):
@@ -23,19 +22,18 @@ class UCIOnline(Network):
 
     @staticmethod
     def _ensure_data():
-        if not os.path.exists(UCI_ONLINE_DIR):
-            urllib.request.urlretrieve(UCI_ONLINE_URL, UCI_ONLINE_TAR_PATH)
-            tar = tarfile.open(UCI_ONLINE_TAR_PATH, "r:bz2")
-            tar.extractall(DATA_DIR)
-            tar.close()
+        if not os.path.exists(UCI_ONLINE_CSV_PATH):
+            urllib.request.urlretrieve(UCI_ONLINE_URL, UCI_ONLINE_ZIP_PATH)
+            with zipfile.ZipFile(UCI_ONLINE_ZIP_PATH, 'r') as zip_file:
+                zip_file.extractall(DATA_DIR)
 
     @staticmethod
     def _data_generator():
         UCIOnline._ensure_data()
-        with open(UCI_ONLINE_TSV_PATH, 'r') as tsv_file:
-            for i, line in enumerate(tsv_file.readlines()):
+        with open(UCI_ONLINE_CSV_PATH, 'r') as csv_file:
+            for i, line in enumerate(csv_file.readlines()):
                 if not line.startswith('%'):
-                    split_line = line.strip().split()
+                    split_line = line.strip().split(',')
                     from_id = int(split_line[0])
                     to_id = int(split_line[1])
                     count = int(split_line[2])
