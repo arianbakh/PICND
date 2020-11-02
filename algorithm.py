@@ -236,21 +236,43 @@ class Population:
         return self.individuals[0]  # fittest
 
 
-def _draw_error_plot(errors, network_name, dynamic_model_name, method_name):
+def _draw_error_plot(d3cnd_errors, ga_errors, network_name, dynamic_model_name):
+    max_len = max(len(d3cnd_errors), len(ga_errors))
+    padded_d3cnd_errors = np.pad(
+        np.array(d3cnd_errors),
+        (0, max_len - len(d3cnd_errors)),
+        'constant',
+        constant_values=(np.nan, np.nan)
+    )
+    padded_ga_errors = np.pad(
+        np.array(ga_errors),
+        (0, max_len - len(ga_errors)),
+        'constant',
+        constant_values=(np.nan, np.nan)
+    )
     data_frame = pd.DataFrame({
-        'iterations': np.arange(len(errors)),
-        'errors': np.array(errors),
+        'iterations': np.arange(max_len),
+        'D3CND': padded_d3cnd_errors,
+        'GA': padded_ga_errors
     })
+    melted_data_frame = pd.melt(
+        data_frame,
+        id_vars=['iterations'],
+        value_vars=[
+            'D3CND',
+            'GA',
+        ]
+    )
     rc('font', weight=600)
     plt.subplots(figsize=(11, 6))
-    ax = sns.lineplot(x='iterations', y='errors', data=data_frame, linewidth=4)
-    ax.set_title('%s on %s via %s' % (dynamic_model_name, network_name, method_name), fontsize=28, fontweight=500)
+    ax = sns.lineplot(x='iterations', y='value', hue='variable', style='variable', data=melted_data_frame, linewidth=4)
+    ax.set_title('%s Model on %s Network' % (dynamic_model_name, network_name), fontsize=28, fontweight=500)
     ax.set_xlabel('Iteration', fontsize=20, fontweight=500)
     ax.set_ylabel('$log_{10}(MSE)$', fontsize=20, fontweight=500)
     for axis in ['top', 'bottom', 'left', 'right']:
         ax.spines[axis].set_linewidth(3)
     ax.tick_params(width=3, length=10, labelsize=16)
-    plt.savefig(os.path.join(OUTPUT_DIR, '%s_on_%s_via_%s.png' % (dynamic_model_name, network_name, method_name)))
+    plt.savefig(os.path.join(OUTPUT_DIR, '%s_on_%s.png' % (dynamic_model_name, network_name)))
     plt.close('all')
 
 
@@ -268,7 +290,27 @@ def _save_info(exec_time, iterations, fittest_individual, network_name, dynamic_
         print(info_file.read())
 
 
-def run(network_name, dynamic_model_name, method_name):
+def _run_method(x, y, network, network_name, dynamic_model_name, method_name):
+    population = Population(POPULATION, x, y, network.adjacency_matrix, method_name)
+    fittest_individual = sorted(population.individuals, key=lambda individual: -1 * individual['fitness'])[0]
+    counter = 0
+    best_fitness = 0
+    errors = [math.log10(fittest_individual['mse'])]
+    start_time = time.time()
+    while time.time() - start_time < MAX_EXECUTION_TIME:
+        counter += 1
+        fittest_individual = population.run_single_iteration()
+        errors.append(math.log10(fittest_individual['mse']))
+        if fittest_individual['fitness'] > best_fitness:
+            best_fitness = fittest_individual['fitness']
+        if counter % 100 == 0:
+            print(fittest_individual['mse'])
+    end_time = time.time()
+    _save_info(int(end_time - start_time), counter, fittest_individual, network_name, dynamic_model_name, method_name)
+    return errors
+
+
+def run(network_name, dynamic_model_name):
     network = None
     if network_name == FullyConnectedRandomWeights.name:
         network = FullyConnectedRandomWeights()
@@ -302,27 +344,16 @@ def run(network_name, dynamic_model_name, method_name):
     x = dynamic_model.get_x(TIME_FRAMES)
     y = dynamic_model.get_x_dot(x)
 
-    population = Population(POPULATION, x, y, network.adjacency_matrix, method_name)
-    fittest_individual = sorted(population.individuals, key=lambda individual: -1 * individual['fitness'])[0]
-    counter = 0
-    best_fitness = 0
-    errors = [math.log10(fittest_individual['mse'])]
-    start_time = time.time()
-    while time.time() - start_time < MAX_EXECUTION_TIME:
-        counter += 1
-        fittest_individual = population.run_single_iteration()
-        errors.append(math.log10(fittest_individual['mse']))
-        if fittest_individual['fitness'] > best_fitness:
-            best_fitness = fittest_individual['fitness']
-        if counter % 100 == 0:
-            print(fittest_individual['mse'])
-    end_time = time.time()
-    _draw_error_plot(errors, network_name, dynamic_model_name, method_name)
-    _save_info(int(end_time - start_time), counter, fittest_individual, network_name, dynamic_model_name, method_name)
+    random_seed = random.random()
+    random.seed(random_seed)
+    d3cnd_errors = _run_method(x, y, network, network_name, dynamic_model_name, D3CND_METHOD_NAME)
+    random.seed(random_seed)  # to make sure the initial populations are the same
+    ga_errors = _run_method(x, y, network, network_name, dynamic_model_name, GA_METHOD_NAME)
+    _draw_error_plot(d3cnd_errors, ga_errors, network_name, dynamic_model_name)
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 4:
+    if len(sys.argv) != 3:
         print('Invalid number of arguments')
         exit(0)
-    run(sys.argv[1], sys.argv[2], sys.argv[3])
+    run(sys.argv[1], sys.argv[2])

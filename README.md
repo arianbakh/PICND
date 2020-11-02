@@ -4,7 +4,9 @@
 
 # Usage
 
-- `python3 algorithm.py [network_name] [dynamics_model_name] [method_name]`
+`python3 algorithm.py [network_name] [dynamics_model_name]`
+
+or just `python3 run_all.py`
 
 # Networks
 
@@ -21,8 +23,3 @@
 - R1: Simple regulatory dynamic model
 - R2: Regulatory dynamic model with non-integer exponents
 - P: Population dynamic model
-
-# Methods
-
-- GA: A purely genetic algorithm approach
-- D3CND: Our algorithm
