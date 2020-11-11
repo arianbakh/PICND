@@ -22,9 +22,9 @@ from networks.uci_online import UCIOnline
 from networks.eco1 import ECO1
 from networks.eco2 import ECO2
 from networks.ppi1 import PPI1
-from settings import OUTPUT_DIR, TIME_FRAMES, D3CND_CHROMOSOME_SIZE, GA_CHROMOSOME_SIZE, GENE_SIZE, MUTATION_CHANCE, \
+from settings import OUTPUT_DIR, TIME_FRAMES, PICND_CHROMOSOME_SIZE, GA_CHROMOSOME_SIZE, GENE_SIZE, MUTATION_CHANCE, \
     POPULATION, CHILDREN, MAX_EXECUTION_TIME, EXPONENT_RANGE, COEFFICIENT_RANGE_OFFSET, STEP, GA_METHOD_NAME, \
-    D3CND_METHOD_NAME, EPSILON
+    PICND_METHOD_NAME, EPSILON
 
 
 warnings.filterwarnings('ignore', module=backend_gtk3.__name__)
@@ -70,7 +70,7 @@ def _get_theta(x, adjacency_matrix, powers):
 
 
 def _get_complete_individual_ga(x, y, adjacency_matrix, chromosome, initial):
-    # the "initial" parameter is necessary in order to keep the format similar to d3cnd function
+    # the "initial" parameter is necessary in order to keep the format similar to picnd function
     numbers = []
     for i in range(GA_CHROMOSOME_SIZE):
         binary = 0
@@ -105,9 +105,9 @@ def _get_complete_individual_ga(x, y, adjacency_matrix, chromosome, initial):
     }
 
 
-def _get_complete_individual_d3cnd(x, y, adjacency_matrix, chromosome, initial):
+def _get_complete_individual_picnd(x, y, adjacency_matrix, chromosome, initial):
     powers = []
-    for i in range(D3CND_CHROMOSOME_SIZE):
+    for i in range(PICND_CHROMOSOME_SIZE):
         binary = 0
         for j in range(GENE_SIZE):
             binary += chromosome[i * GENE_SIZE + j] * 2 ** (GENE_SIZE - j - 1)
@@ -155,9 +155,9 @@ class Population:
         if self.method_name == GA_METHOD_NAME:
             self.get_complete_individual = _get_complete_individual_ga
             self.chromosome_size = GA_CHROMOSOME_SIZE
-        elif self.method_name == D3CND_METHOD_NAME:
-            self.get_complete_individual = _get_complete_individual_d3cnd
-            self.chromosome_size = D3CND_CHROMOSOME_SIZE
+        elif self.method_name == PICND_METHOD_NAME:
+            self.get_complete_individual = _get_complete_individual_picnd
+            self.chromosome_size = PICND_CHROMOSOME_SIZE
         else:
             print('Invalid method name')
             exit(0)
@@ -236,11 +236,11 @@ class Population:
         return self.individuals[0]  # fittest
 
 
-def _draw_error_plot(d3cnd_errors, ga_errors, network_name, dynamic_model_name):
-    max_len = max(len(d3cnd_errors), len(ga_errors))
-    padded_d3cnd_errors = np.pad(
-        np.array(d3cnd_errors),
-        (0, max_len - len(d3cnd_errors)),
+def _draw_error_plot(picnd_errors, ga_errors, network_name, dynamic_model_name):
+    max_len = max(len(picnd_errors), len(ga_errors))
+    padded_picnd_errors = np.pad(
+        np.array(picnd_errors),
+        (0, max_len - len(picnd_errors)),
         'constant',
         constant_values=(np.nan, np.nan)
     )
@@ -252,18 +252,18 @@ def _draw_error_plot(d3cnd_errors, ga_errors, network_name, dynamic_model_name):
     )
     data_frame = pd.DataFrame({
         'iterations': np.arange(max_len),
-        'D3CND': padded_d3cnd_errors,
+        'PICND': padded_picnd_errors,
         'GA': padded_ga_errors
     })
     melted_data_frame = pd.melt(
         data_frame,
         id_vars=['iterations'],
         value_vars=[
-            'D3CND',
+            'PICND',
             'GA',
         ]
     )
-    rc('font', weight=600)
+    rc('font', weight=500)
     plt.subplots(figsize=(11, 6))
     ax = sns.lineplot(x='iterations', y='value', hue='variable', style='variable', data=melted_data_frame, linewidth=4)
     ax.set_title('%s Model on %s Network' % (dynamic_model_name, network_name), fontsize=28, fontweight=500)
@@ -272,6 +272,7 @@ def _draw_error_plot(d3cnd_errors, ga_errors, network_name, dynamic_model_name):
     for axis in ['top', 'bottom', 'left', 'right']:
         ax.spines[axis].set_linewidth(3)
     ax.tick_params(width=3, length=10, labelsize=16)
+    plt.legend(prop={'size': 20, 'weight': 'normal'})
     plt.savefig(os.path.join(OUTPUT_DIR, '%s_on_%s.png' % (dynamic_model_name, network_name)))
     plt.close('all')
 
@@ -346,10 +347,10 @@ def run(network_name, dynamic_model_name):
 
     random_seed = random.random()
     random.seed(random_seed)
-    d3cnd_errors = _run_method(x, y, network, network_name, dynamic_model_name, D3CND_METHOD_NAME)
+    picnd_errors = _run_method(x, y, network, network_name, dynamic_model_name, PICND_METHOD_NAME)
     random.seed(random_seed)  # to make sure the initial populations are the same
     ga_errors = _run_method(x, y, network, network_name, dynamic_model_name, GA_METHOD_NAME)
-    _draw_error_plot(d3cnd_errors, ga_errors, network_name, dynamic_model_name)
+    _draw_error_plot(picnd_errors, ga_errors, network_name, dynamic_model_name)
 
 
 if __name__ == '__main__':
