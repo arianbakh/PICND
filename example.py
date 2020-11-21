@@ -56,7 +56,16 @@ def _draw_node_plot(self_dynamics, neighbor_dynamics, node_index, frames):
     )
     rc('font', weight=500)
     plt.subplots(figsize=(11, 6))
-    ax = sns.lineplot(x='iterations', y='value', hue='variable', data=melted_data_frame, linewidth=4, palette=["C0", "C1", "k"])
+    ax = sns.lineplot(
+        x='iterations',
+        y='value',
+        style='variable',
+        hue='variable',
+        dashes=['', (3, 3), (5, 1)],
+        data=melted_data_frame,
+        linewidth=4,
+        palette=["C0", "C1", "k"]
+    )
     ax.set_title('Derivative of Node %d' % (node_index + 1), fontsize=28, fontweight=500)
     ax.set_xlabel('Time Frames', fontsize=20, fontweight=500)
     ax.set_ylabel('', fontsize=20, fontweight=500)
